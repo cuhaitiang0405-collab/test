@@ -6,6 +6,7 @@ import { AnimatedRoutes } from "@/components/AnimatedRoutes";
 import { PageTransition } from "@/components/PageTransition";
 import { AppShell } from "@/components/layout/AppShell";
 import { CockpitPage } from "@/components/cockpit/CockpitPage";
+import { DeviceLifecyclePage } from "@/components/devices/DeviceLifecyclePage";
 import { Placeholder } from "@/pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -37,7 +38,11 @@ function App() {
             <AnimatedRoutes>
               <Route path="/" element={<Navigate to="/cockpit" replace />} />
               <Route path="/cockpit" element={<PageTransition transition="fade"><CockpitPage /></PageTransition>} />
-              <Route path="/devices" element={<PageTransition transition="fade"><Placeholder path="/devices" /></PageTransition>} />
+              <Route path="/devices" element={<PageTransition transition="fade"><DeviceLifecyclePage /></PageTransition>} />
+              <Route path="/devices/procure" element={<PageTransition transition="fade"><Placeholder path="/devices/procure" /></PageTransition>} />
+              <Route path="/devices/operation" element={<PageTransition transition="fade"><Placeholder path="/devices/operation" /></PageTransition>} />
+              <Route path="/devices/repair" element={<PageTransition transition="fade"><Placeholder path="/devices/repair" /></PageTransition>} />
+              <Route path="/devices/maintenance" element={<PageTransition transition="fade"><Placeholder path="/devices/maintenance" /></PageTransition>} />
               <Route path="/ingest" element={<PageTransition transition="fade"><Placeholder path="/ingest" /></PageTransition>} />
               <Route path="/govern" element={<PageTransition transition="fade"><Placeholder path="/govern" /></PageTransition>} />
               <Route path="/exchange" element={<PageTransition transition="fade"><Placeholder path="/exchange" /></PageTransition>} />

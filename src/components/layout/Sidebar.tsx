@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Boxes,
+  Truck,
+  Activity,
+  Wrench,
+  ClipboardCheck,
   Radio,
   Database,
   Share2,
@@ -9,16 +14,24 @@ import {
   ShieldCheck,
   ServerCog,
   HeartPulse,
+  ChevronRight,
   PanelLeftClose,
   PanelLeft,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface SubNavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  planned?: boolean;
+}
 interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  children?: SubNavItem[];
 }
 interface NavGroup {
   title: string;
@@ -33,7 +46,18 @@ const groups: NavGroup[] = [
   {
     title: "业务域",
     items: [
-      { to: "/devices", label: "设备全生命周期", icon: Boxes },
+      {
+        to: "/devices",
+        label: "设备全生命周期",
+        icon: Boxes,
+        children: [
+          { to: "/devices", label: "设备台账管理", icon: Boxes },
+          { to: "/devices/procure", label: "设备采购与入库管理", icon: Truck, planned: true },
+          { to: "/devices/operation", label: "设备运行管理", icon: Activity, planned: true },
+          { to: "/devices/repair", label: "维修管理", icon: Wrench, planned: true },
+          { to: "/devices/maintenance", label: "保养与巡检管理", icon: ClipboardCheck, planned: true },
+        ],
+      },
       { to: "/ingest", label: "数据采集监控", icon: Radio },
       { to: "/govern", label: "数据治理", icon: Database },
       { to: "/exchange", label: "共享交换", icon: Share2 },
@@ -55,6 +79,21 @@ export function Sidebar({
   onToggle: () => void;
 }) {
   const { pathname } = useLocation();
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(groups.flatMap((g) => g.items)
+      .filter((it) => it.children && pathname.startsWith(it.to))
+      .map((it) => it.to))
+  );
+
+  const toggle = (to: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      n.has(to) ? n.delete(to) : n.add(to);
+      return n;
+    });
+
+  const isActive = (it: NavItem) =>
+    pathname === it.to || (it.children ? it.children.some((c) => pathname === c.to) : false);
 
   return (
     <aside
@@ -89,25 +128,86 @@ export function Sidebar({
             )}
             <div className="space-y-1">
               {g.items.map((it) => {
-                const active = pathname === it.to;
-                const Icon = it.icon;
+                if (!it.children) {
+                  const active = pathname === it.to;
+                  const Icon = it.icon;
+                  return (
+                    <NavLink
+                      key={it.to}
+                      to={it.to}
+                      className={cn(
+                        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                        active
+                          ? "bg-sidebar-accent font-medium text-sidebar-primary"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      {active && (
+                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+                      )}
+                      <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-sidebar-primary" : "")} />
+                      {!collapsed && <span className="truncate">{it.label}</span>}
+                    </NavLink>
+                  );
+                }
+
+                // 父级（可展开）
+                const open = expanded.has(it.to);
+                const parentActive = isActive(it);
                 return (
-                  <NavLink
-                    key={it.to}
-                    to={it.to}
-                    className={cn(
-                      "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                      active
-                        ? "bg-sidebar-accent font-medium text-sidebar-primary"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                  <div key={it.to}>
+                    <button
+                      onClick={() => toggle(it.to)}
+                      className={cn(
+                        "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                        parentActive
+                          ? "bg-sidebar-accent font-medium text-sidebar-primary"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                      )}
+                    >
+                      {parentActive && (
+                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+                      )}
+                      <it.icon className={cn("h-[18px] w-[18px] shrink-0", parentActive ? "text-sidebar-primary" : "")} />
+                      {!collapsed && <span className="truncate">{it.label}</span>}
+                      {!collapsed && (
+                        <ChevronRight
+                          className={cn(
+                            "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                            open && "rotate-90"
+                          )}
+                        />
+                      )}
+                    </button>
+                    {!collapsed && open && (
+                      <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
+                        {it.children.map((c) => {
+                          const cActive = pathname === c.to;
+                          const CIcon = c.icon;
+                          return (
+                            <NavLink
+                              key={c.to}
+                              to={c.to}
+                              className={cn(
+                                "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                                cActive
+                                  ? "bg-sidebar-accent font-medium text-sidebar-primary"
+                                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                              )}
+                            >
+                              <CIcon className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                              {c.planned && (
+                                <span className="ml-auto shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                                  规划中
+                                </span>
+                              )}
+                            </NavLink>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    {active && (
-                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-                    )}
-                    <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-sidebar-primary" : "")} />
-                    {!collapsed && <span className="truncate">{it.label}</span>}
-                  </NavLink>
+                  </div>
                 );
               })}
             </div>

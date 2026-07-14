@@ -368,3 +368,158 @@ export function getInitialAlerts(): AlertItem[] {
 export function rangeLabel(range: TimeRange): string {
   return rangeOptions.find((o) => o.id === range)?.name ?? "";
 }
+
+// ============================================================
+// 设备全生命周期管理
+// ============================================================
+export type DeviceStatus = "运行中" | "空闲" | "告警" | "离线";
+export const deviceTypes = ["CT", "MRI", "超声", "DR", "监护仪", "呼吸机", "输液泵", "DSA"];
+
+export interface DeviceRow {
+  id: string;
+  name: string;
+  type: string; // 设备类型
+  model: string;
+  brand: string; // 供应商（品牌）
+  sn: string;
+  dept: string;
+  owner: string;
+  status: DeviceStatus;
+  installDate: string; // 安装日期 YYYY-MM-DD
+  warrantyPeriod: string; // 保修期，如 "3年" / "36个月"
+  maintenanceDate: string; // 维护日期 YYYY-MM-DD
+  qrImage?: string; // 用户上传的二维码/条码图片（data URL）
+}
+
+/** 由安装日期 + 保修期推算保修到期日（YYYY-MM-DD） */
+export function warrantyExpiry(d: Pick<DeviceRow, "installDate" | "warrantyPeriod">): string {
+  const months = parseWarrantyMonths(d.warrantyPeriod);
+  const [y, m, day] = d.installDate.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const ey = Math.floor(total / 12);
+  const em = (total % 12) + 1;
+  return `${ey}-${String(em).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** 是否过保（保修到期日 < 今天） */
+export function isExpired(d: Pick<DeviceRow, "installDate" | "warrantyPeriod">): boolean {
+  return warrantyExpiry(d) < new Date().toISOString().slice(0, 10);
+}
+
+function parseWarrantyMonths(period: string): number {
+  const n = parseInt(period, 10);
+  if (period.includes("年")) return n * 12;
+  if (period.includes("个月") || period.includes("月")) return n;
+  return n * 12;
+}
+
+const deviceBrands: Record<string, string[]> = {
+  CT: ["GE", "西门子", "联影", "东软"],
+  MRI: ["GE", "飞利浦", "西门子", "联影"],
+  超声: ["飞利浦", "迈瑞", "西门子", "奥林巴斯"],
+  DR: ["飞利浦", "联影", "万东", "锐珂"],
+  监护仪: ["迈瑞", "飞利浦", "GE", "理邦"],
+  呼吸机: ["迈瑞", "德尔格", "飞利浦", "谊安"],
+  输液泵: ["迈瑞", "贝朗", "费森尤斯", "新华"],
+  DSA: ["飞利浦", "西门子", "GE", "东软"],
+};
+const deviceModels: Record<string, string[]> = {
+  CT: ["Revolution CT", "Optima 660", "uCT 780", "NeuViz 16"],
+  MRI: ["Signa 1.5T", "Ingenia 3.0T", "MAGNETOM Aera", "uMR 560"],
+  超声: ["EPIQ 7", "Resona 7", "ACUSON S2000", "HS-660"],
+  DR: ["DigitalDiagnost", "uDR 770i", "新东方 1000", "DRX"],
+  监护仪: ["BeneVision N15", "IntelliVue MX450", "Dash 4000", "iPM 12"],
+  呼吸机: ["SV600", "Evita V800", "Trilogy", "VG70"],
+  输液泵: ["BeneFusion VP5", "Infusomat", "Volumatic", "ZL-600"],
+  DSA: ["Azurion 7", "Artis Q", "Innova IGS", "NeuAngio"],
+};
+const ownerPool = ["张伟", "李娜", "王强", "刘洋", "陈静", "赵磊", "孙琳", "周涛"];
+const deptPool = ["影像科", "急诊科", "重症医学科", "手术室", "心血管内科", "神经内科", "呼吸内科", "骨科"];
+
+function buildDevices(): DeviceRow[] {
+  const r = mulberry32(hashSeed("device-base-v2"));
+  const list: DeviceRow[] = [];
+  let n = 0;
+  for (const type of deviceTypes) {
+    const count = 5 + Math.floor(r() * 3); // 5-7 台每类
+    for (let i = 0; i < count; i++) {
+      n++;
+      const brand = deviceBrands[type][Math.floor(r() * deviceBrands[type].length)];
+      const model = deviceModels[type][Math.floor(r() * deviceModels[type].length)];
+      const dept = deptPool[Math.floor(r() * deptPool.length)];
+      const owner = ownerPool[Math.floor(r() * ownerPool.length)];
+      const roll = r();
+      const status: DeviceStatus = roll < 0.78 ? "运行中" : roll < 0.88 ? "空闲" : roll < 0.95 ? "告警" : "离线";
+      const iy = 2020 + Math.floor(r() * 4); // 安装年份 2020-2023
+      const im = 1 + Math.floor(r() * 12);
+      const iday = 1 + Math.floor(r() * 28);
+      const installDate = `${iy}-${String(im).padStart(2, "0")}-${String(iday).padStart(2, "0")}`;
+      const wpYears = [1, 2, 3, 5][Math.floor(r() * 4)];
+      const warrantyPeriod = `${wpYears}年`;
+      const my = 2026;
+      const mm = 1 + Math.floor(r() * 6);
+      const mday = 1 + Math.floor(r() * 28);
+      const maintenanceDate = `${my}-${String(mm).padStart(2, "0")}-${String(mday).padStart(2, "0")}`;
+      const sn = `${type}-${String(1000 + n)}`;
+      list.push({
+        id: `DEV-${String(n).padStart(4, "0")}`,
+        name: `${brand} ${model}`,
+        type,
+        model,
+        brand,
+        sn,
+        dept,
+        owner,
+        status,
+        installDate,
+        warrantyPeriod,
+        maintenanceDate,
+      });
+    }
+  }
+  return list;
+}
+
+const allDevices = buildDevices();
+
+export function getDevices(opts: {
+  dept?: string;
+  type?: string;
+  brand?: string;
+  status?: string;
+  q?: string;
+} = {}): DeviceRow[] {
+  const { dept, type, brand, status, q } = opts;
+  return allDevices.filter((d) => {
+    if (dept && dept !== "全部" && d.dept !== dept) return false;
+    if (type && type !== "全部" && d.type !== type) return false;
+    if (brand && brand !== "全部" && d.brand !== brand) return false;
+    if (status && status !== "全部" && d.status !== status) return false;
+    if (q && !`${d.name}${d.sn}${d.owner}${d.dept}${d.brand}`.includes(q)) return false;
+    return true;
+  });
+}
+
+export const deviceBrandsFlat = Array.from(
+  new Set(Object.values(deviceBrands).flat())
+);
+
+export interface DeviceLifecycleStat {
+  label: string;
+  value: string;
+  tone?: "default" | "green" | "red" | "gold";
+}
+export function getDeviceLifecycleStats(): DeviceLifecycleStat[] {
+  const total = allDevices.length;
+  const running = allDevices.filter((d) => d.status === "运行中").length;
+  const alarm = allDevices.filter((d) => d.status === "告警").length;
+  const offline = allDevices.filter((d) => d.status === "离线").length;
+  const overdue = allDevices.filter((d) => isExpired(d)).length;
+  return [
+    { label: "设备总数", value: `${total} 台`, tone: "default" },
+    { label: "运行中", value: `${running} 台`, tone: "green" },
+    { label: "告警设备", value: `${alarm} 台`, tone: "red" },
+    { label: "离线设备", value: `${offline} 台`, tone: "default" },
+    { label: "过保设备", value: `${overdue} 台`, tone: "gold" },
+  ];
+}

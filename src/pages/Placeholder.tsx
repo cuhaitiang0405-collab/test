@@ -1,5 +1,5 @@
 import { Construction, type LucideIcon } from "lucide-react";
-import { Boxes, Radio, Database, Share2, Users, ShieldCheck, ServerCog } from "lucide-react";
+import { Boxes, Radio, Database, Share2, Users, ShieldCheck, ServerCog, Truck, Activity, Wrench, ClipboardCheck } from "lucide-react";
 
 const plans: Record<
   string,
@@ -39,6 +39,26 @@ const plans: Record<
     icon: ServerCog,
     desc: "平台服务与治理",
     features: ["可插拔组件", "SLA / 熔断降级", "服务注册发现", "调用审计"],
+  },
+  "/devices/procure": {
+    icon: Truck,
+    desc: "设备采购与入库管理",
+    features: ["采购申请与审批", "到货验收登记", "入库上架建档", "资产卡片生成"],
+  },
+  "/devices/operation": {
+    icon: Activity,
+    desc: "设备运行管理",
+    features: ["实时运行状态", "开机时长 / 利用率", "能耗与负载监测", "异常自动告警"],
+  },
+  "/devices/repair": {
+    icon: Wrench,
+    desc: "维修管理",
+    features: ["多渠道报修", "工单派发与跟踪", "维修记录归档", "备件消耗统计"],
+  },
+  "/devices/maintenance": {
+    icon: ClipboardCheck,
+    desc: "保养与巡检管理",
+    features: ["保养计划编排", "巡检任务下发", "到期自动提醒", "执行结果归档"],
   },
 };
 
